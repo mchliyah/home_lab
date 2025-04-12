@@ -1,0 +1,14 @@
+linux:
+  hosts:
+    # 134.209.242.96:
+    #     domain_name: emmamed2.ooguy.com
+    #     admin_email: mohamed.chl1993@gmail.com
+    64.226.70.45:
+        domain_name: emmamed1.ooguy.com
+        domain_name2: traccar.emmamed1.ooguy.com
+        admin_email: mohamed.chl1993@gmail.com
+  vars:
+    ansible_user: root
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+

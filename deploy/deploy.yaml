@@ -1,0 +1,124 @@
+---
+- name: Deploy Nextcloud and Tracar stack with Docker Compose
+  hosts: linux
+  become: yes
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Ensure Docker is installed
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Ensure Certbot is installed
+      apt:
+        name: certbot
+        state: present
+
+    - name: Ensure Docker Compose is installed
+      block:
+        - name: Download Docker Compose binary
+          get_url:
+            url: https://github.com/docker/compose/releases/download/v2.23.3/docker-compose-linux-x86_64
+            dest: /usr/local/bin/docker-compose
+            mode: '0755'
+          register: download_result
+
+        - name: Verify Docker Compose installation
+          command: docker-compose --version
+          register: docker_compose_version
+          changed_when: false
+
+        - name: Debug Docker Compose version
+          debug:
+            msg: "Docker Compose version: {{ docker_compose_version.stdout }}"
+
+    - name: Check if data directories exist
+      stat:
+        path: "{{ item }}"
+      register: dir_stat
+      loop:
+        - ~/data/nextcloud
+        - ~/data/traccar
+        - ~/data/traccar/logs
+        - ~/data/db
+
+    - name: Create data directories if they do not exist
+      file:
+        path: "{{ item.item }}"
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+      loop: "{{ dir_stat.results }}"
+      when: not item.stat.exists
+
+    - name: Ensure /opt/cloud-1 directory exists
+      file:
+        path: /opt/cloud-1
+        state: directory
+        owner: root
+        group: root
+        mode: '0755'
+
+    - name: Copy folders and file to the remote host
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        directory_mode: yes
+      loop:
+        - { src: "../requirements/", dest: "/opt/cloud-1/requirements/" }
+        - { src: "../src/", dest: "/opt/cloud-1/src/" }
+
+    - name: Copy Docker Compose and .env files to the remote host
+      copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+      loop:
+        - { src: "../docker-compose.yml", dest: "/opt/cloud-1/docker-compose.yml" }
+        - { src: "../.env", dest: "/opt/cloud-1/.env" }
+
+    - name: Deploy NGINX configuration from template
+      template:
+        src: ../templates/nginx.conf.j2
+        dest: /opt/cloud-1/requirements/nginx/default
+        owner: root
+        group: root
+        mode: '0644'
+      vars:
+        DOMAIN_NAME: "{{ domain_name }}"
+        ADMIN_EMAIL: "{{ admin_email }}"
+
+    - name: Check if SSL certificates already exist
+      stat:
+        path: /etc/letsencrypt/live/{{ domain_name }}/fullchain.pem
+      register: ssl_cert
+
+    - name: Generate SSL certificates using Certbot (if not already present)
+      command: >
+        certbot certonly --standalone --non-interactive --agree-tos --email {{ admin_email }} -d {{ domain_name }}
+      when: not ssl_cert.stat.exists
+      environment:
+        PATH: /usr/bin:/usr/local/bin
+      register: certbot_result
+      ignore_errors: yes
+
+    - name: Debug Certbot result
+      debug:
+        var: certbot_result
+
+    - name: Set up Certbot renewal cron job
+      cron:
+        name: "Certbot renewal"
+        minute: "0"
+        hour: "0"
+        job: "certbot renew --quiet"
+        user: root
+
+    - name: Start Docker Compose services
+      command: docker-compose -f ./docker-compose.yml up --build -d
+      args:
+        chdir: /opt/cloud-1
