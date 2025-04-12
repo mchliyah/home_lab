@@ -1,0 +1,62 @@
+# Redirect HTTP to HTTPS
+server {
+    listen 80;
+    server_name emmamed1.ooguy.com traccar.emmamed1.ooguy.com;
+
+    # Redirect HTTP to HTTPS
+    return 301 https://$host$request_uri;
+}
+
+# Nextcloud Server Block
+server {
+    listen 443 ssl;
+    server_name emmamed1.ooguy.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/emmamed1.ooguy.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/emmamed1.ooguy.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Proxy to Nextcloud
+    location / {
+        proxy_pass https://nextcloud:8443;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # Important for file uploads
+        client_max_body_size 10G;
+        proxy_request_buffering off;
+    }
+
+    # Add these headers for proper Nextcloud operation
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options nosniff;
+    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Robots-Tag none;
+    add_header X-Download-Options noopen;
+    add_header X-Permitted-Cross-Domain-Policies none;
+}
+
+# Traccar Server Block
+server {
+    listen 443 ssl;
+    server_name traccar.emmamed1.ooguy.com;
+
+    # SSL Configuration
+    ssl_certificate /etc/letsencrypt/live/traccar.emmamed1.ooguy.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/traccar.emmamed1.ooguy.com/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+
+    # Proxy to Traccar
+    location / {
+        proxy_pass http://traccar:8082;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}

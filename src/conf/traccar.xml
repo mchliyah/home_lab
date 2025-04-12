@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+    <entry key="config.default">/opt/traccar/conf/traccar.xml</entry>
+    <entry key="database.driver">com.mysql.cj.jdbc.Driver</entry>
+    <entry key="database.url">jdbc:mysql://mariadb:3306/nextcloud_traccar_db?useSSL=false&amp;allowPublicKeyRetrieval=true</entry>
+    <entry key="database.user">admin</entry>
+    <entry key="database.password">password</entry>
+</properties>
