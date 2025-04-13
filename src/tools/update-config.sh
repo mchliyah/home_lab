@@ -17,6 +17,9 @@ done
 
 echo "Config.php found! Updating trusted domains..."
 
+chown -R www-data:www-data "$CONFIG_DIR"
+chmod -R 744 "$CONFIG_DIR"
+
 # Fix the 'trusted_domains' typo if it exists
 sed -i "s/'trusted_domains'/'trusted_domains'/" "$CONFIG_FILE"
 
@@ -29,8 +32,11 @@ if ! grep -q "'$DOMAIN_NAME'" "$CONFIG_FILE"; then
     ' "$CONFIG_FILE" > /tmp/config.php && mv /tmp/config.php "$CONFIG_FILE"
 fi
 
-# chown -R root:root /var/www/html/config
-# chown -R root:root /var/www/html/occ
+# chown -R www-data:www-data /var/www/html/config
+chmod -R 774 "$CONFIG_DIR"
+chown -R www-data:www-data "$CONFIG_FILE"
+chmod -R 664 "$CONFIG_FILE"
+chown -R www-data:www-data /var/www/html/occ
 
 
 # /var/www/html/occ config:system:set maintenance_window_start --type=integer --value=1

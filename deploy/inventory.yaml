@@ -1,14 +1,9 @@
 linux:
   hosts:
-    # 134.209.242.96:
-    #     domain_name: emmamed2.ooguy.com
-    #     admin_email: mohamed.chl1993@gmail.com
-    64.226.70.45:
-        domain_name: emmamed1.ooguy.com
-        domain_name2: traccar.emmamed1.ooguy.com
-        admin_email: mohamed.chl1993@gmail.com
+    "{{ lookup('env', 'HOST_IP') }}":
+        domain_name: "{{ lookup('env', 'DOMAIN_NAME') }}"
+        domain_name2: "{{ lookup('env', 'DOMAIN_NAME2') }}"
+        admin_email: "{{ lookup('env', 'ADMIN_EMAIL') }}"
   vars:
-    ansible_user: root
-    ansible_ssh_private_key_file: ~/.ssh/id_rsa
-
-
+    ansible_user: "{{ lookup('env', 'ANSIBLE_USER') }}"
+    ansible_ssh_private_key_file: "{{ lookup('env', 'ANSIBLE_SSH_PRIVATE_KEY_FILE') }}"

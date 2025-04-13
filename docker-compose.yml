@@ -31,12 +31,15 @@ services:
       - /etc/letsencrypt/archive:/etc/letsencrypt/archive
       - /etc/letsencrypt/live:/etc/letsencrypt/live
     environment:
+      REDIS_HOST: redis
+      REDIS_HOST_PORT: 6379
       MYSQL_HOST: mariadb
       MYSQL_DATABASE: ${DB_NAME}
       MYSQL_USER: ${DB_USER}
       MYSQL_PASSWORD: ${DB_PASS}
-      # NEXTCLOUD_ADMIN_USER: ${ADMIN_USER}
-      # NEXTCLOUD_ADMIN_PASSWORD: ${ADMIN_PASS}
+      NEXTCLOUD_ADMIN_USER: ${ADMIN_USER}
+      NEXTCLOUD_ADMIN_PASSWORD: ${ADMIN_PASS}
+      DOMAIN_NAME: ${DOMAIN_NAME} 
     ports:
       - 8443:8443
     restart: always
@@ -44,10 +47,6 @@ services:
       - inception
 
   traccar:
-    # build: 
-    #   context: .
-    #   dockerfile: requirements/traccar/Dockerfile
-    # image: traccar:v1
     image: traccar/traccar:latest
     container_name: traccar
     init: true
@@ -89,24 +88,31 @@ services:
     networks:
       - inception
 
+  redis:
+    image: redis:alpine
+    networks:
+      - inception
+    volumes:
+      - redis:/data
+
 volumes:
   nextcloud:
     driver: local
     driver_opts:
       type: none
-      device: ~/data/nextcloud
+      device: /var/data/nextcloud
       o: bind
   traccar:
     driver: local
     driver_opts:
       type: none
-      device: ~/data/traccar
+      device: /var/data/traccar
       o: bind
   db:
     driver: local
     driver_opts:
       type: none
-      device: ~/data/db
+      device: /var/data/db
       o: bind
 
 networks:
