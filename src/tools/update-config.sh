@@ -1,49 +1,43 @@
 #!/bin/bash
-set -e
 
+# Variables and command paths
 CONFIG_DIR="/var/www/html/config"
-CONFIG_FILE="$CONFIG_DIR/config.php"
+OCC_CMD="/var/www/html/occ"
+PHP_CMD="/usr/local/bin/php"
+MARKER_FILE="/var/www/html/.config_done"
 
-echo "Starting Nextcloud setup..."
+echo "Starting Nextcloud configuration script..."
 
-# Run the Nextcloud entrypoint to initialize config.php
-/entrypoint.sh apache2-foreground &
-ENTRYPOINT_PID=$!
+# Check if the configuration has already been applied
+if [ ! -f "$MARKER_FILE" ]; then
+    echo "Applying initial Nextcloud configuration..."
 
-echo "Waiting for config.php to be created..."
-while [ ! -f "$CONFIG_FILE" ]; do
-    sleep 2
-done
+    # Run occ commands as www-data
+    run_occ_once() {
+        su www-data -s /bin/bash -c "$PHP_CMD $OCC_CMD $*"
+    }
 
-echo "Config.php found! Updating trusted domains..."
+    # Configure trusted domain, Redis, maintenance window and repair
+    run_occ_once "config:system:set" "trusted_domains" "1" "--value=$DOMAIN_NAME"
+    run_occ_once "config:system:set" "memcache.local" "--value" "\OC\Memcache\Redis"
+    run_occ_once "config:system:set" "redis" "host" "--value" "$REDIS_HOST"
+    run_occ_once "config:system:set" "redis" "port" "--value" "$REDIS_HOST_PORT" "--type" "integer"
+    run_occ_once "config:system:set" "maintenance_window_start" "--value" "1" "--type" "integer"
+    run_occ_once "maintenance:repair" "--include-expensive"
 
-chown -R www-data:www-data "$CONFIG_DIR"
-chmod -R 744 "$CONFIG_DIR"
-
-# Fix the 'trusted_domains' typo if it exists
-sed -i "s/'trusted_domains'/'trusted_domains'/" "$CONFIG_FILE"
-
-# Add DOMAIN_NAME to 'trusted_domains' if not already present
-if ! grep -q "'$DOMAIN_NAME'" "$CONFIG_FILE"; then
-    awk -v domain="$DOMAIN_NAME" '
-        /trusted_domains/ {inside=1} 
-        inside && /\)/ {print "    1 => '\''" domain "'\'',"; inside=0} 
-        {print}
-    ' "$CONFIG_FILE" > /tmp/config.php && mv /tmp/config.php "$CONFIG_FILE"
+    # Create marker file to avoid re-running these commands in subsequent startups
+    touch "$MARKER_FILE"
+    echo "Initial configuration applied."
+else
+    echo "Configuration already applied. Skipping."
 fi
 
-# chown -R www-data:www-data /var/www/html/config
-chmod -R 774 "$CONFIG_DIR"
-chown -R www-data:www-data "$CONFIG_FILE"
-chmod -R 664 "$CONFIG_FILE"
-chown -R www-data:www-data /var/www/html/occ
+# Add ServerName directive to fix Apache warnings if not already present
+if ! grep -q "ServerName localhost" /etc/apache2/apache2.conf; then
+    echo "Adding 'ServerName localhost' to Apache configuration."
+    echo "ServerName localhost" >> /etc/apache2/apache2.conf
+    apachectl graceful || true
+fi
 
+echo "Nextcloud configuration script completed successfully."
 
-# /var/www/html/occ config:system:set maintenance_window_start --type=integer --value=1
-# /var/www/html/occ maintenance:repair --include-expensive
-
-echo "Configuration update complete. Restarting Nextcloud..."
-
-# # Restart Nextcloud to apply changes
-kill $ENTRYPOINT_PID
-exec /entrypoint.sh apache2-foreground

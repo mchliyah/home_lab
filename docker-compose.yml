@@ -114,6 +114,12 @@ volumes:
       type: none
       device: /var/data/db
       o: bind
+  redis:
+    driver: local
+    driver_opts:
+      type: none
+      device: /var/data/redis
+      o: bind
 
 networks:
   inception:

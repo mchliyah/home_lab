@@ -29,6 +29,9 @@ server {
         # Important for file uploads
         client_max_body_size 10G;
         proxy_request_buffering off;
+        # WebSocket pour Nextcloud Talk
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
     }
 
     # Add these headers for proper Nextcloud operation
