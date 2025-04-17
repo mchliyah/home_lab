@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     && a2enmod ssl
 
 # Configurer le cron
-RUN echo "* * * * * www-data php -f /var/www/html/cron.php" > /etc/cron.d/nextcloud \
+RUN echo "*/5 * * * * www-data php -f /var/www/html/cron.php" > /etc/cron.d/nextcloud \
     && chmod 0644 /etc/cron.d/nextcloud
 
 # Copier les configurations

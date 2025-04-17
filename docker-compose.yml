@@ -30,6 +30,8 @@ services:
       - nextcloud:/var/www/html
       - /etc/letsencrypt/archive:/etc/letsencrypt/archive
       - /etc/letsencrypt/live:/etc/letsencrypt/live
+    env_file:
+      - ./.env
     environment:
       REDIS_HOST: redis
       REDIS_HOST_PORT: 6379

@@ -22,6 +22,9 @@ logs:
 ps:
 	docker-compose -f ./docker-compose.yml ps
 
+config:
+	docker exec -it nextcloud /update-config.sh
+
 clean:
 	@if [ -n "$$(docker ps -qa)" ]; then docker rm -f $$(docker ps -qa); fi
 	@if [ -n "$$(docker images -qa)" ]; then docker rmi -f $$(docker images -qa); fi
