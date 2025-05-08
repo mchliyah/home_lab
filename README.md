@@ -79,6 +79,7 @@ or make down
 docker exec mariadb mysqldump -u root -p\${DB_PASS} --all-databases > backup.sql
 
 6 migration: 
+
 -------------------------------------------
 
 migration steps will be coverd soon (maybe) 
