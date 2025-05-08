@@ -58,4 +58,11 @@ if ! grep -q "ServerName localhost" /etc/apache2/apache2.conf; then
     apachectl graceful || true
 fi
 
+# Add trusted proxy using occ
+TRUSTED_PROXIES="nginx"
+
+# Add trusted proxy via occ if it is not already set
+run_occ_once config:system:set trusted_proxies 1 --value="$TRUSTED_PROXIES"
+
+
 echo "Nextcloud configuration script completed successfully."
