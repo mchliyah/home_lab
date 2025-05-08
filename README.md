@@ -13,7 +13,7 @@ Home Lab Setup Guide - Step by Step
 2. Initial Setup
 ----------------
 2.1 Clone repository:
-git clone https://github.com/mchliyah/home-lab.git
+git clone https://github.com/mchliyah/home_lab.git
 cd home-lab
 
 2.2 Create .env file:
