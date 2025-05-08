@@ -76,10 +76,9 @@ or make down
 
 5.2 Backup database:
 docker exec mariadb mysqldump -u root -p\${DB_PASS} --all-databases > backup.sql
-
-=====================================
+-------------------------------------------
 migration steps will be coverd soon (maybe) 
-=====================================
+-------------------------------------------
 7. Access Services
 ------------------
 7.1 Nextcloud: https://yourdomain.com
