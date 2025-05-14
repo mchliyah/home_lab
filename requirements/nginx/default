@@ -1,65 +1,134 @@
-# Redirect HTTP to HTTPS
+# Redirect all HTTP to HTTPS
 server {
     listen 80;
-    server_name emmamed1.ooguy.com traccar.emmamed1.ooguy.com;
-
-    # Redirect HTTP to HTTPS
+    server_name saveup.mywire.org nc.saveup.mywire.org signaling.saveup.mywire.org;
     return 301 https://$host$request_uri;
 }
 
-# Nextcloud Server Block
+# Nextcloud Main Server Block
 server {
     listen 443 ssl;
-    server_name emmamed1.ooguy.com;
+    server_name nc.saveup.mywire.org;
 
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/emmamed1.ooguy.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/emmamed1.ooguy.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
+    # SSL Certificates
+    ssl_certificate     /etc/letsencrypt/live/nc.saveup.mywire.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/nc.saveup.mywire.org/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
 
-    # Proxy to Nextcloud
-    location / {
-        proxy_pass https://nextcloud:8443;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        
-        # Important for file uploads
-        client_max_body_size 10G;
-        proxy_request_buffering off;
-        # WebSocket pour Nextcloud Talk
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+    # Global MIME types (include default + custom)
+    include mime.types;
+    types {
+        application/javascript    js mjs;
+        application/json          map;
+        font/otf                  otf;
+        application/wasm          wasm;
     }
 
-    # Add these headers for proper Nextcloud operation
+    # Block any direct access to the data directory
+    location ^~ /data {
+        deny all;
+        return 404;
+    }
+
+    # Well-Known Service Discovery
+    location = /.well-known/carddav {
+        return 301 https://$host/remote.php/dav/;
+    }
+    location = /.well-known/caldav {
+        return 301 https://$host/remote.php/dav/;
+    }
+    location = /.well-known/webfinger {
+        return 301 https://$host/index.php/.well-known/webfinger;
+    }
+    location = /.well-known/nodeinfo {
+        return 301 https://$host/index.php/.well-known/nodeinfo;
+    }
+
+    # Main Nextcloud Proxy
+    location / {
+        proxy_pass               https://nextcloud:8443;
+        proxy_set_header         Host              $host;
+        proxy_set_header         X-Real-IP         $remote_addr;
+        proxy_set_header         X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header         X-Forwarded-Proto $scheme;
+
+        client_max_body_size     10G;
+        proxy_request_buffering  off;
+
+        # WebSocket support for Talk
+        proxy_set_header         Upgrade           $http_upgrade;
+        proxy_set_header         Connection        "upgrade";
+    }
+
+    # STUN/TURN proxy
+    location /turn {
+        proxy_pass               http://coturn:3478;
+    }
+
+    # Security Headers
     add_header Strict-Transport-Security "max-age=15768000; includeSubDomains; preload" always;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
-    add_header X-Robots-Tag none;
-    add_header X-Download-Options noopen;
+    add_header X-Content-Type-Options   nosniff;
+    add_header X-XSS-Protection         "1; mode=block";
+    add_header X-Robots-Tag             none;
+    add_header X-Download-Options       noopen;
+    add_header X-Permitted-Cross-Domain-Policies none;
+
+    error_log  /var/log/nginx/nextcloud-error.log;
+    access_log /var/log/nginx/nextcloud-access.log;
+}
+
+# Nextcloud Talk HPB (Signaling) Server Block
+server {
+    listen 443 ssl;
+    server_name signaling.saveup.mywire.org;
+
+    ssl_certificate     /etc/letsencrypt/live/signaling.saveup.mywire.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/signaling.saveup.mywire.org/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+
+    location / {
+        proxy_pass           http://nextcloud-talk-hpb:8081;
+        proxy_http_version   1.1;
+        proxy_set_header     Host               $host;
+        proxy_set_header     X-Real-IP          $remote_addr;
+        proxy_set_header     X-Forwarded-For    $proxy_add_x_forwarded_for;
+        proxy_set_header     X-Forwarded-Proto  $scheme;
+        proxy_set_header     Upgrade            $http_upgrade;
+        proxy_set_header     Connection         "upgrade";
+    }
+
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options   nosniff;
+    add_header X-XSS-Protection         "1; mode=block";
+    add_header X-Robots-Tag             none;
+    add_header X-Download-Options       noopen;
     add_header X-Permitted-Cross-Domain-Policies none;
 }
 
-# Traccar Server Block
+# Traccar Proxy Server Block
 server {
     listen 443 ssl;
-    server_name traccar.emmamed1.ooguy.com;
+    server_name saveup.mywire.org;
 
-    # SSL Configuration
-    ssl_certificate /etc/letsencrypt/live/traccar.emmamed1.ooguy.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/traccar.emmamed1.ooguy.com/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_certificate     /etc/letsencrypt/live/saveup.mywire.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/saveup.mywire.org/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
 
-    # Proxy to Traccar
     location / {
-        proxy_pass http://traccar:8082;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_pass               http://traccar:8082;
+        proxy_set_header         Host              $host;
+        proxy_set_header         X-Real-IP         $remote_addr;
+        proxy_set_header         X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header         X-Forwarded-Proto $scheme;
     }
+
+    add_header Strict-Transport-Security "max-age=15768000; includeSubDomains; preload" always;
+    add_header X-Content-Type-Options   nosniff;
+    add_header X-XSS-Protection         "1; mode=block";
+    add_header X-Robots-Tag             none;
+    add_header X-Download-Options       noopen;
+    add_header X-Permitted-Cross-Domain-Policies none;
 }

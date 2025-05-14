@@ -4,17 +4,19 @@
 CONFIG_DIR="/var/www/html/config"
 OCC_CMD="/var/www/html/occ"
 PHP_CMD="/usr/local/bin/php"
-MARKER_FILE="/var/www/html/.config_done"
+USER_LIST="/users.csv"
 
 echo "Starting Nextcloud configuration script..."
 
 # Check if the configuration has already been applied
 echo "Applying initial Nextcloud configuration..."
+
 # Run occ commands as www-data
 run_occ_once() {
     su www-data -s /bin/bash -c "$PHP_CMD $OCC_CMD $*"
 }
-# Configure trusted domain, Redis, maintenance window and repair
+
+# Configure trusted domain, Redis, maintenance window, and repair
 run_occ_once config:system:set trusted_domains 1 --value="$DOMAIN_NAME"
 run_occ_once config:system:set memcache.local --value="\OC\Memcache\Redis"
 run_occ_once config:system:set redis host --value="$REDIS_HOST"
@@ -58,11 +60,58 @@ if ! grep -q "ServerName localhost" /etc/apache2/apache2.conf; then
     apachectl graceful || true
 fi
 
-# Add trusted proxy using occ
-TRUSTED_PROXIES="nginx"
+# Applying trusted_proxies ip range
+echo "Applying trusted_proxies ip range..."
+run_occ_once config:system:set trusted_proxies 1 --value="172.17.0.1/16"
 
-# Add trusted proxy via occ if it is not already set
-run_occ_once config:system:set trusted_proxies 1 --value="$TRUSTED_PROXIES"
+# Enforce group-based sharing and visibility
+echo "Applying group-based sharing restrictions..."
+run_occ_once config:app:set core shareapi_only_share_with_group_members --value=true
+run_occ_once config:app:set core shareapi_allow_resharing --value=false
+run_occ_once config:app:set core shareapi_allow_links --value=false
+run_occ_once config:system:set disable_user_list --value=true --type=boolean
 
+# Automated user creation from CSV
+# if [[ -f "$USER_LIST" ]]; then
+#   echo "Creating users from $USER_LIST..."
+#   while IFS=',' read -r username password email displayname group; do
+#     # Skip header or empty lines
+#     [[ "$username" == "username" || -z "$username" ]] && continue
+
+#     # Skip admin if included by mistake
+#     if [[ "$username" == "$NEXTCLOUD_ADMIN_USER" ]]; then
+#       echo "Skipping admin user $username"
+#       continue
+#     fi
+
+#     echo "Creating user: $username"
+
+#     # Check if group exists and create if not
+#     if [[ -n "$group" && $(run_occ_once group:info "$group" &>/dev/null; echo $?) -ne 0 ]]; then
+#       echo "Creating group $group"
+#       run_occ_once group:add "$group"
+#     fi
+
+#     # Create user if not exists
+#     if ! run_occ_once user:info "$username" &>/dev/null; then
+#       export OC_PASS="$password" # Password from CSV
+#       run_occ_once user:add --display-name "$displayname" --email "$email" --password-from-env "$username"
+#       unset OC_PASS
+#     else
+#       echo "User $username already exists. Skipping creation."
+#     fi
+
+#     # Add to group
+#     if [[ -n "$group" ]]; then
+#       run_occ_once group:adduser "$group" "$username"
+#     fi
+#   done < <(tail -n +2 "$USER_LIST")  # Skip CSV header
+# else
+#   echo "User list file $USER_LIST not found. Skipping user creation."
+# fi
+
+# Configure TURN and STUN Servers
+run_occ_once config:system:set turns --value="turn:coturn:3478"
+run_occ_once config:system:set stun --value="stun:coturn:3478"
 
 echo "Nextcloud configuration script completed successfully."

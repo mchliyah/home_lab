@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   mariadb:
     build: 
@@ -26,12 +24,17 @@ services:
     image: nextcloud:v1
     container_name: nextcloud
     init: true
+    depends_on:
+      - redis
+      - nextcloud-talk-hpb
     volumes:
       - nextcloud:/var/www/html
       - /etc/letsencrypt/archive:/etc/letsencrypt/archive
       - /etc/letsencrypt/live:/etc/letsencrypt/live
     env_file:
       - ./.env
+    extra_hosts:
+      - "${DOMAIN_NAME}:172.18.0.8"
     environment:
       REDIS_HOST: redis
       REDIS_HOST_PORT: 6379
@@ -41,13 +44,80 @@ services:
       MYSQL_PASSWORD: ${DB_PASS}
       NEXTCLOUD_ADMIN_USER: ${ADMIN_USER}
       NEXTCLOUD_ADMIN_PASSWORD: ${ADMIN_PASS}
-      DOMAIN_NAME: ${DOMAIN_NAME} 
+      DOMAIN_NAME: ${DOMAIN_NAME}
+      TURN_SERVER: coturn
+      TURN_SECRET: ${TURN_SECRET}
+      TURN_PORT: 3480
+      SIGNALING_SERVER: nextcloud-talk-hpb
+      SIGNALING_SECRET: ${SIGNALING_SECRET}
+      INTERNAL_SECRET: ${INTERNAL_SECRET}
     ports:
       - 8443:8443
     restart: always
     networks:
       - inception
 
+  nginx:
+    build:
+      context: .
+      dockerfile: requirements/nginx/Dockerfile
+    image: nginx:v1
+    container_name: nginx
+    init: true
+    depends_on:
+      - nextcloud
+      - coturn
+      - nextcloud-talk-hpb
+      - traccar
+    volumes:
+      - nextcloud:/var/www/html
+      - /etc/letsencrypt/archive:/etc/letsencrypt/archive
+      - /etc/letsencrypt/live:/etc/letsencrypt/live
+    ports:
+      - 80:80
+      - 443:443
+    restart: always
+    networks:
+      - inception
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    networks:
+      - inception
+    volumes:
+      - redis:/data
+
+  coturn:
+    image: coturn/coturn
+    container_name: coturn
+    environment:
+      - TURN_SECRET=${TURN_SECRET}
+      - SIGNALING_SECRET=${SIGNALING_SECRET}
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+    restart: always
+    ports:
+      - "3480:3478"
+      - "3480:3478/udp"
+    networks:
+      - inception
+
+  nextcloud-talk-hpb:
+    image: ghcr.io/nextcloud-releases/aio-talk:latest
+    container_name: nextcloud-talk-hpb
+    ports:
+      - "3478:3478"
+    restart: always
+    environment:
+      - TURN_SECRET=${TURN_SECRET}
+      - SIGNALING_SECRET=${SIGNALING_SECRET}
+      - INTERNAL_SECRET=${INTERNAL_SECRET}
+      - NC_DOMAIN=${DOMAIN_NAME}
+      - TALK_HOST=${SIGNALING_SERVER}
+      - TALK_PORT=3478
+    networks:
+      - inception
   traccar:
     image: traccar/traccar:latest
     container_name: traccar
@@ -63,39 +133,11 @@ services:
       DB_PASS: ${DB_PASS}
     ports:
       - 8082:8082
-      - 5000-5150:5000-5150/tcp
-      - 5000-5150:5000-5150/udp
+      - 5013:5013/tcp
+      - 5013:5013/udp
     restart: always
     networks:
       - inception
-
-  nginx:
-    build: 
-      context: .
-      dockerfile: requirements/nginx/Dockerfile
-    image: nginx:v1
-    container_name: nginx
-    init: true
-    depends_on:
-      - nextcloud
-      - traccar
-    volumes:
-      - nextcloud:/var/www/html
-      - /etc/letsencrypt/archive:/etc/letsencrypt/archive
-      - /etc/letsencrypt/live:/etc/letsencrypt/live
-    ports:
-      - 80:80
-      - 443:443
-    restart: always
-    networks:
-      - inception
-
-  redis:
-    image: redis:alpine
-    networks:
-      - inception
-    volumes:
-      - redis:/data
 
 volumes:
   nextcloud:
@@ -103,12 +145,6 @@ volumes:
     driver_opts:
       type: none
       device: /var/data/nextcloud
-      o: bind
-  traccar:
-    driver: local
-    driver_opts:
-      type: none
-      device: /var/data/traccar
       o: bind
   db:
     driver: local
@@ -122,6 +158,25 @@ volumes:
       type: none
       device: /var/data/redis
       o: bind
+  traccar:
+    driver: local
+    driver_opts:
+      type: none
+      device: /var/data/traccar
+      o: bind
+  nextcloud-talk-hpb:
+    driver: local
+    driver_opts:
+      type: none
+      device: /var/data/nextcloud-talk-hpb
+      o: bind
+  coturn:
+    driver: local
+    driver_opts:
+      type: none
+      device: /var/data/coturn
+      o: bind
+
 
 networks:
   inception:

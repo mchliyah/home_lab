@@ -33,4 +33,4 @@ clean:
 
 fclean :
 	docker system prune -a --force
-	sudo rm -rf /var/data/*/*
+#	sudo rm -rf /var/data/*/*
