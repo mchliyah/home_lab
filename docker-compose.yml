@@ -36,6 +36,8 @@ services:
     extra_hosts:
       - "${DOMAIN_NAME}:172.18.0.8"
     environment:
+      PHP_MEMORY_LIMIT: 512M
+      PHP_UPLOAD_LIMIT: 1G
       REDIS_HOST: redis
       REDIS_HOST_PORT: 6379
       MYSQL_HOST: mariadb

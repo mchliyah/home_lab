@@ -5,6 +5,7 @@ RUN apt-get update && apt-get install -y \
     openssl \
     nano \
     libheif1 \
+    ffmpeg \
     cron \
     && apt-get clean \
     && chown -R www-data:www-data /var/www/html \
@@ -17,7 +18,7 @@ RUN echo "*/5 * * * * www-data php -f /var/www/html/cron.php" > /etc/cron.d/next
 # Copier les configurations
 COPY src/conf/nextcloud-ssl.conf /etc/apache2/sites-available/
 COPY src/tools/update-config.sh /update-config.sh
-COPY src/tools/users.csv /users.csv
+#COPY src/tools/users.csv /users.csv
 
 # Configurer Apache
 RUN sed -i 's/Listen 80/# Listen 80/g' /etc/apache2/ports.conf \
